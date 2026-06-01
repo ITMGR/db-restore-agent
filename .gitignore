@@ -1,0 +1,9 @@
+.env
+!.env.example
+__pycache__/
+*.pyc
+data/*
+!data/.gitkeep
+!data/dumps/
+data/dumps/*
+!data/dumps/.gitkeep

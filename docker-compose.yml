@@ -1,0 +1,72 @@
+services:
+  db:
+    image: mariadb:12.1
+    container_name: crz-opt-mariadb
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:${MARIADB_PORT:-53306}:3306"
+    command:
+      - mariadbd
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_uca1400_ai_ci
+      - --max-allowed-packet=1G
+      - --net-read-timeout=120
+      - --net-write-timeout=120
+      - --key-buffer-size=${MARIADB_KEY_BUFFER_SIZE:-4G}
+      - --bulk-insert-buffer-size=${MARIADB_BULK_INSERT_BUFFER_SIZE:-1G}
+      - --myisam-sort-buffer-size=${MARIADB_MYISAM_SORT_BUFFER_SIZE:-4G}
+      - --aria-pagecache-buffer-size=${MARIADB_ARIA_PAGECACHE_BUFFER_SIZE:-1G}
+      - --innodb-buffer-pool-size=${MARIADB_INNODB_BUFFER_POOL_SIZE:-4G}
+      - --innodb-log-file-size=${MARIADB_INNODB_LOG_FILE_SIZE:-1G}
+      - --innodb-flush-log-at-trx-commit=2
+      - --innodb-autoinc-lock-mode=2
+      - --performance-schema=OFF
+      - --skip-name-resolve
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -p\"$${MARIADB_ROOT_PASSWORD}\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - ./data/mariadb:/var/lib/mysql
+      - ./data/dumps:/dumps:ro
+      - ./scripts:/opt/crz-opt-scripts:ro
+
+  restore-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.restore-worker
+    image: crz-opt-restore-worker:local
+    container_name: crz-opt-restore-worker
+    restart: unless-stopped
+    profiles:
+      - restore-worker
+    env_file:
+      - .env
+    environment:
+      COMPOSE_PROJECT_NAME: crz-opt
+      DUMP_WATCH_DIR: ${DUMP_WATCH_DIR:-/data/deploy/openclaw/config/workspace/projects/crz-opt/data/dumps}
+      RESTORE_STATE_DIR: ${RESTORE_STATE_DIR:-/data/deploy/openclaw/config/workspace/projects/crz-opt/data/restore-state}
+      RESTORE_POLL_INTERVAL: ${RESTORE_POLL_INTERVAL:-60}
+      RESTORE_STABLE_SECONDS: ${RESTORE_STABLE_SECONDS:-120}
+      RESTORE_ON_START: ${RESTORE_ON_START:-true}
+      RESTORE_WORKFLOW_MODE: ${RESTORE_WORKFLOW_MODE:-pruned-data}
+      RESTORE_AUTO_BACKFILL: ${RESTORE_AUTO_BACKFILL:-true}
+      RESTORE_GZIP_TEST: ${RESTORE_GZIP_TEST:-false}
+      METRICS_ENABLED: ${METRICS_ENABLED:-true}
+      METRICS_PORT: ${METRICS_PORT:-9100}
+    ports:
+      - "127.0.0.1:${RESTORE_WORKER_METRICS_PORT:-59100}:${METRICS_PORT:-9100}"
+    working_dir: ${RESTORE_WORKER_PROJECT_DIR:-/data/deploy/openclaw/config/workspace/projects/crz-opt}
+    volumes:
+      - .:${RESTORE_WORKER_PROJECT_DIR:-/data/deploy/openclaw/config/workspace/projects/crz-opt}
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      db:
+        condition: service_healthy
+
+networks:
+  default:
+    name: crz-opt
