@@ -1,5 +1,12 @@
 # Release Notes - crz-opt
 
+## v0.1.1 - 2026-06-01
+
+Patch release:
+
+- Volitelne HTTP Basic Auth prihlasovanie na metrics endpoint cez `METRICS_BASIC_AUTH_ENABLED`, `METRICS_BASIC_AUTH_USERNAME` a `METRICS_BASIC_AUTH_PASSWORD`.
+- Metrics server pri chybajucom Docker CLI alebo timeout-e vrati scrape-failure metriky namiesto padu request handlera.
+
 ## v0.1.0 - 2026-06-01
 
 Prva pouzitelna verzia MariaDB restore labu pre CRZ dump.

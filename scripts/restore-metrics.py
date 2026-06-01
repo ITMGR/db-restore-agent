@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 import csv
+import base64
+import hmac
 import json
 import os
-import re
 import subprocess
 import time
 from datetime import datetime, timezone
@@ -16,6 +17,9 @@ DUMP_DIR = Path(os.environ.get("DUMP_WATCH_DIR", PROJECT_DIR / "data" / "dumps")
 RUNS_DIR = PROJECT_DIR / "data" / "restore-runs"
 PORT = int(os.environ.get("METRICS_PORT", "9100"))
 PRUNE_RE = os.environ.get("PRUNE_DATA_TABLE_REGEX", r"^(log_[0-9]+|counter_[0-9]+|robot_01|robot_02|elastic1)$")
+AUTH_ENABLED = os.environ.get("METRICS_BASIC_AUTH_ENABLED", "false").lower() == "true"
+AUTH_USERNAME = os.environ.get("METRICS_BASIC_AUTH_USERNAME", "")
+AUTH_PASSWORD = os.environ.get("METRICS_BASIC_AUTH_PASSWORD", "")
 START_TIME = time.time()
 
 
@@ -72,15 +76,20 @@ def last_csv_row(path):
 
 
 def run_command(command, timeout=8):
-    return subprocess.run(
-        command,
-        cwd=PROJECT_DIR,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        timeout=timeout,
-        check=False,
-    )
+    try:
+        return subprocess.run(
+            command,
+            cwd=PROJECT_DIR,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=timeout,
+            check=False,
+        )
+    except FileNotFoundError as exc:
+        return subprocess.CompletedProcess(command, 127, "", str(exc))
+    except subprocess.TimeoutExpired as exc:
+        return subprocess.CompletedProcess(command, 124, exc.stdout or "", exc.stderr or "timeout")
 
 
 def compose_service_metrics():
@@ -258,10 +267,32 @@ def render_metrics():
     return "\n".join(lines).encode()
 
 
+def auth_header_valid(header):
+    if not AUTH_ENABLED:
+        return True
+    if not AUTH_USERNAME or not AUTH_PASSWORD:
+        return False
+    if not header.startswith("Basic "):
+        return False
+    try:
+        decoded = base64.b64decode(header[6:], validate=True).decode()
+    except Exception:
+        return False
+    username, separator, password = decoded.partition(":")
+    if separator != ":":
+        return False
+    return hmac.compare_digest(username, AUTH_USERNAME) and hmac.compare_digest(password, AUTH_PASSWORD)
+
+
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path not in ("/metrics", "/metrics/"):
             self.send_response(404)
+            self.end_headers()
+            return
+        if not auth_header_valid(self.headers.get("Authorization", "")):
+            self.send_response(401)
+            self.send_header("WWW-Authenticate", 'Basic realm="crz-opt metrics"')
             self.end_headers()
             return
         body = render_metrics()

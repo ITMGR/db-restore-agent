@@ -227,4 +227,10 @@ Po teste bol restore worker rozsirený o Prometheus-compatible metrics endpoint:
 
 Metriky pokryvaju stav workeru, Docker Compose sluzieb, dump adresara, posledneho restore/backfill behu, MariaDB dostupnosti, pocet tabuliek a riadky v pruned/backfill tabulkach.
 
-Release stav: `v0.1.0`.
+Metrics endpoint podporuje volitelne Basic Auth:
+
+- `METRICS_BASIC_AUTH_ENABLED=true`,
+- `METRICS_BASIC_AUTH_USERNAME=<user>`,
+- `METRICS_BASIC_AUTH_PASSWORD=<password>`.
+
+Release stav: `v0.1.1`.

@@ -6,7 +6,7 @@ Ciel: opakovatelne merat cas obnovy databazy zo suboru `*.sql.gz`, najprv baseli
 
 ## Stav
 
-- verzia: `v0.1.0`
+- verzia: `v0.1.1`
 - faza: lokalne Docker Compose restore lab
 - verejne nasadenie: nie
 - Docker Compose: ano, MariaDB
@@ -163,6 +163,20 @@ curl http://127.0.0.1:59100/metrics
 ```
 
 Endpoint poskytuje stav worker kontajnera, posledného restore workflow, dump adresára, MariaDB dostupnosti, počtu tabuliek a naplnenosti backfill tabuliek.
+
+Voliteľné Basic Auth prihlasovanie na metrics endpoint sa zapína v `.env`:
+
+```env
+METRICS_BASIC_AUTH_ENABLED=true
+METRICS_BASIC_AUTH_USERNAME=prometheus
+METRICS_BASIC_AUTH_PASSWORD=<silne-heslo>
+```
+
+Potom scrape:
+
+```bash
+curl -u prometheus:<silne-heslo> http://127.0.0.1:59100/metrics
+```
 
 Porovnanie merani:
 

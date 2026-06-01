@@ -53,6 +53,7 @@ Existujuce suvisiace projekty:
 | FR-009 | System musi vediet automaticky sledovat dump adresar a pri novom stabilnom dumpe spustit restore + backfill workflow. | Implementovane ciastocne |
 | FR-010 | System musi ukladat stav naposledy uspesne obnoveneho dumpu. | Implementovane |
 | FR-011 | Restore worker musi poskytovat Prometheus-compatible metrics endpoint so stavom workeru, restore workflow a databazy. | Implementovane |
+| FR-012 | Metrics endpoint musi podporovat volitelne HTTP Basic Auth prihlasovanie cez konfiguracne premenne. | Implementovane |
 
 ## 6. Nefunkcne poziadavky
 
@@ -104,6 +105,7 @@ Existujuce suvisiace projekty:
 | FR-009 | `docker compose --profile restore-worker config`, kontrola `scripts/watch-dumps.sh` | `Dockerfile.restore-worker`, `docker-compose.yml`, `scripts/watch-dumps.sh` |
 | FR-010 | kontrola `data/restore-state/last-success.id` a `last-success.state` po uspesnom behu | `scripts/watch-dumps.sh` |
 | FR-011 | `curl http://127.0.0.1:59100/metrics` obsahuje `crz_restore_worker_up`, `crz_restore_database_tables_total` | `scripts/restore-metrics.py`, `scripts/restore-worker-entrypoint.sh`, `docker-compose.yml` |
+| FR-012 | pri `METRICS_BASIC_AUTH_ENABLED=true` vracia `/metrics` bez auth HTTP 401 a s platnym `Authorization: Basic` HTTP 200 | `scripts/restore-metrics.py`, `.env.example`, `docker-compose.yml` |
 
 ## 11. Aktualne overenie
 
@@ -118,3 +120,4 @@ Existujuce suvisiace projekty:
 | 2026-05-31 | `mariadb-check --fast --databases crz` | OK |
 | 2026-06-01 | realny auto-restore worker cez kopiu dumpu + async backfill | OK; restore 2575 s, backfill 2088 s, workflow success |
 | 2026-06-01 | Prometheus metrics endpoint restore workeru | OK; `/metrics` vracia worker, compose, dump a MariaDB restore metriky |
+| 2026-06-01 | Basic Auth pre metrics endpoint | OK; volitelne zapnutie cez `METRICS_BASIC_AUTH_ENABLED`, neautorizovany request 401, autorizovany request 200 |
