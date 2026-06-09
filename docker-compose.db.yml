@@ -1,0 +1,42 @@
+services:
+  db:
+    image: mariadb:12.1
+    container_name: crz-opt-mariadb
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:${MARIADB_PORT:-53306}:3306"
+    command:
+      - mariadbd
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_uca1400_ai_ci
+      - --max-allowed-packet=1G
+      - --net-read-timeout=120
+      - --net-write-timeout=120
+      - --key-buffer-size=${MARIADB_KEY_BUFFER_SIZE:-4G}
+      - --bulk-insert-buffer-size=${MARIADB_BULK_INSERT_BUFFER_SIZE:-1G}
+      - --myisam-sort-buffer-size=${MARIADB_MYISAM_SORT_BUFFER_SIZE:-4G}
+      - --aria-pagecache-buffer-size=${MARIADB_ARIA_PAGECACHE_BUFFER_SIZE:-1G}
+      - --innodb-buffer-pool-size=${MARIADB_INNODB_BUFFER_POOL_SIZE:-4G}
+      - --innodb-log-file-size=${MARIADB_INNODB_LOG_FILE_SIZE:-1G}
+      - --innodb-flush-log-at-trx-commit=2
+      - --innodb-autoinc-lock-mode=2
+      - --performance-schema=OFF
+      - --skip-name-resolve
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb -u \"$MARIADB_USER\" -p\"$MARIADB_PASSWORD\" -e 'SELECT 1' >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    networks:
+      - crz-opt-net
+networks:
+  crz-opt-net:
+    name: crz-opt-net
+    external: true
+volumes:
+  mariadb-data:
+    name: crz-opt-mariadb-data

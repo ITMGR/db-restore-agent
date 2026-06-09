@@ -3,6 +3,6 @@ set -euo pipefail
 
 source "$(dirname "$0")/lib.sh"
 
-"${COMPOSE[@]}" restart db
+"${COMPOSE_DB[@]}" restart db
 wait_for_db
-"${COMPOSE[@]}" ps db
+"${COMPOSE_DB[@]}" ps db

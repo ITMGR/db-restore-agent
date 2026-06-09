@@ -7,8 +7,8 @@ CONFIRM="${1:-}"
 
 if [ "$CONFIRM" != "--yes" ] && [ "${RESET_CONFIRM:-}" != "YES" ]; then
   cat >&2 <<MSG
-This deletes the local MariaDB data directory:
-  $PROJECT_DIR/data/mariadb
+This deletes the MariaDB Docker volume data:
+  crz-opt-mariadb-data
 
 Run one of:
   $0 --yes
@@ -17,9 +17,9 @@ MSG
   exit 2
 fi
 
-"${COMPOSE[@]}" stop db >/dev/null 2>&1 || true
-"${COMPOSE[@]}" rm -f db >/dev/null 2>&1 || true
-rm -rf "$PROJECT_DIR/data/mariadb"
-"${COMPOSE[@]}" up -d db
+"${COMPOSE_DB[@]}" stop db >/dev/null 2>&1 || true
+"${COMPOSE_DB[@]}" rm -f db >/dev/null 2>&1 || true
+"${COMPOSE_DB[@]}" run --rm --no-deps --entrypoint sh -v crz-opt-mariadb-data:/target db -c 'find /target -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +'
+"${COMPOSE_DB[@]}" up -d db
 wait_for_db
-"${COMPOSE[@]}" ps db
+"${COMPOSE_DB[@]}" ps db

@@ -92,12 +92,12 @@ run_restore_workflow() {
     fi
 
     log "phase 1: restore"
-    RESTORE_MODE="$RESTORE_WORKFLOW_MODE" "$PROJECT_DIR/scripts/benchmark-restore.sh" "$dump_file"
+    RESTORE_MODE="$RESTORE_WORKFLOW_MODE" "$PROJECT_DIR/scripts/sql-benchmark-restore.sh" "$dump_file"
     write_state_file "$dump_file" "backfill" "running" "$RESTORE_STATE_DIR/current.state"
 
     if [ "$RESTORE_AUTO_BACKFILL" = "true" ]; then
       log "phase 2: backfill"
-      "$PROJECT_DIR/scripts/backfill-gz.sh" "$dump_file"
+      "$PROJECT_DIR/scripts/sql-backfill-gz.sh" "$dump_file"
     else
       log "phase 2: backfill disabled"
     fi

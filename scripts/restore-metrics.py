@@ -2,7 +2,6 @@
 import csv
 import base64
 import hmac
-import json
 import os
 import subprocess
 import time
@@ -17,6 +16,10 @@ DUMP_DIR = Path(os.environ.get("DUMP_WATCH_DIR", PROJECT_DIR / "data" / "dumps")
 RUNS_DIR = PROJECT_DIR / "data" / "restore-runs"
 PORT = int(os.environ.get("METRICS_PORT", "9100"))
 PRUNE_RE = os.environ.get("PRUNE_DATA_TABLE_REGEX", r"^(log_[0-9]+|counter_[0-9]+|robot_01|robot_02|elastic1)$")
+DB_HOST = os.environ.get("DB_HOST", "db")
+DB_PORT = os.environ.get("DB_PORT", "3306")
+DB_NAME = os.environ.get("MARIADB_DATABASE", "crz")
+DB_ROOT_PASSWORD = os.environ.get("MARIADB_ROOT_PASSWORD", "")
 AUTH_ENABLED = os.environ.get("METRICS_BASIC_AUTH_ENABLED", "false").lower() == "true"
 AUTH_USERNAME = os.environ.get("METRICS_BASIC_AUTH_USERNAME", "")
 AUTH_PASSWORD = os.environ.get("METRICS_BASIC_AUTH_PASSWORD", "")
@@ -25,6 +28,10 @@ START_TIME = time.time()
 
 def prom_escape(value):
     return str(value).replace("\\", "\\\\").replace("\n", "\\n").replace('"', '\\"')
+
+
+def sql_quote(value):
+    return "'" + str(value).replace("\\", "\\\\").replace("'", "''") + "'"
 
 
 def labels(**items):
@@ -75,11 +82,12 @@ def last_csv_row(path):
     return rows[-1] if rows else None
 
 
-def run_command(command, timeout=8):
+def run_command(command, timeout=8, env=None):
     try:
         return subprocess.run(
             command,
             cwd=PROJECT_DIR,
+            env=env,
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -92,51 +100,26 @@ def run_command(command, timeout=8):
         return subprocess.CompletedProcess(command, 124, exc.stdout or "", exc.stderr or "timeout")
 
 
-def compose_service_metrics():
-    lines = []
-    result = run_command(["docker", "compose", "ps", "--format", "json"], timeout=6)
-    if result.returncode != 0:
-        lines += metric("crz_restore_compose_scrape_success", 0, "Whether docker compose service scrape succeeded.")
-        return lines
-
-    lines += metric("crz_restore_compose_scrape_success", 1, "Whether docker compose service scrape succeeded.")
-    for raw in result.stdout.splitlines():
-        try:
-            item = json.loads(raw)
-        except json.JSONDecodeError:
-            continue
-        service = item.get("Service") or item.get("Name") or "unknown"
-        state = item.get("State") or "unknown"
-        health = item.get("Health") or ""
-        running = 1 if state.lower() == "running" else 0
-        lines += metric(
-            "crz_restore_compose_service_running",
-            running,
-            "Docker Compose service running state.",
-            service=service,
-            state=state,
-            health=health,
-        )
-    return lines
-
-
 def db_metrics():
     sql = (
         "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE(); "
         "SELECT TABLE_NAME,TABLE_ROWS FROM information_schema.TABLES "
-        f"WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME RLIKE '{PRUNE_RE}' ORDER BY TABLE_NAME;"
+        f"WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME RLIKE {sql_quote(PRUNE_RE)} ORDER BY TABLE_NAME;"
     )
     command = [
-        "docker",
-        "compose",
-        "exec",
-        "-T",
-        "db",
-        "sh",
-        "-lc",
-        f'MYSQL_PWD="$MARIADB_ROOT_PASSWORD" mariadb -uroot "$MARIADB_DATABASE" -N -e "{sql}"',
+        "mariadb",
+        f"--host={DB_HOST}",
+        f"--port={DB_PORT}",
+        "--user=root",
+        "--skip-column-names",
+        "--batch",
+        DB_NAME,
+        "-e",
+        sql,
     ]
-    result = run_command(command, timeout=12)
+    env = os.environ.copy()
+    env["MYSQL_PWD"] = DB_ROOT_PASSWORD
+    result = run_command(command, timeout=12, env=env)
     lines = []
     if result.returncode != 0:
         lines += metric("crz_restore_database_scrape_success", 0, "Whether MariaDB metrics scrape succeeded.")
@@ -261,7 +244,6 @@ def render_metrics():
     lines = []
     lines.extend(restore_state_metrics())
     lines.extend(dump_metrics())
-    lines.extend(compose_service_metrics())
     lines.extend(db_metrics())
     lines.append("")
     return "\n".join(lines).encode()

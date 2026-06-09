@@ -157,4 +157,76 @@ Rozhodnutie: worker nie je spusteny v default profile, aby omylom neresetoval ex
 docker compose --profile restore-worker up -d --build restore-worker
 ```
 
-Na NAS musi `RESTORE_WORKER_PROJECT_DIR` zodpovedat host-side ceste projektu, lebo worker pouziva `/var/run/docker.sock` a vnutorne spusta `docker compose`.
+Povodne worker pouzival `/var/run/docker.sock` a vnutorne spustal `docker compose`.
+Od 2026-06-04 to uz neplati: worker restore riadi priamo cez MariaDB klienta,
+SQL prikazy a bash pipeline. `RESTORE_WORKER_PROJECT_DIR` stale urcuje mountnutu
+projektovu cestu, ale nie je potrebny kvoli Docker socketu.
+
+## 2026-06-09 - v1.0.0: Kompletná rearchitektúra na dva nezávislé stacky
+
+Rozhodnutie: Kompletná rearchitektúra restore labu na dva oddelené Docker Compose stacky.
+
+**Dôvody:**
+- Pôvodný jednotný `docker-compose.yml` mixoval DB a worker, čo sťažovolo nezávislé nasadenie
+- Worker potrebuje vlastnú sieťovú komunikáciu s DB, nie cez localhost
+- Scripts mali byť v image, nie v volume mountoch
+
+**Implementácia:**
+
+Nová štruktúra:
+- `docker-compose.db.yml` - samostatný MariaDB stack, port 53306
+- `docker-compose.yml` - samostatný restore-worker stack
+- Zdieľaný externý bridge `crz-opt-net` (10.91.0.0/24)
+- `Dockerfile.restore-worker` - COPY scripts/ do /opt/crz-opt-scripts/
+- Worker entrypoint: `restore-worker-entrypoint.sh` → metrics + watch-dumps
+
+**Sieťová architektúra:**
+```
+crz-opt-net (10.91.0.0/24, external bridge)
+├── crz-opt-mariadb (10.91.0.2:3306)
+└── crz-opt-restore-worker (10.91.0.x:3306) → DB_HOST=crz-opt-mariadb
+```
+
+**Scripts v image:**
+Všetky skripty sú teraz embedded v `restore-worker` image v `/opt/crz-opt-scripts/`:
+- `sql-benchmark-restore.sh` - hlavný restore workflow
+- `sql-restore-gz.sh` - restore s pv progress
+- `sql-backfill-gz.sh` - async backfill
+- `watch-dumps.sh` - automatický monitoring
+- `container-restore.sh`, `container-backfill.sh` - container-aware helpers
+- `container-wait-ready.sh` - DB healthcheck cez `MARIADB_USER=crz`
+
+**PV progress monitoring:**
+`sql-restore-gz.sh` teraz používa pv na zobrazenie progress počas restore:
+```bash
+pv -petrb -s "$UNCOMPRESSED_SIZE" < "$DUMP_FILE" | gzip -dc | mariadb ...
+```
+
+**DB_HOST context-aware:**
+- Worker context: `DB_HOST=crz-opt-mariadb` (sieťový hostname)
+- Local context: `127.0.0.1` (pre local debugging)
+- `container-wait-ready.sh` defaultuje na `127.0.0.1` ak nie je nastavené
+
+**Výsledky testov:**
+- Auto-restore simulation: 500k rows, 3.5s restore
+- Watch-dumps.sh funguje: detection → 120s stable → restore → backfill
+- Metrics endpoint: OK
+- PV progress: funguje (bez PTY binary mode)
+
+**Nasadenie na NAS:**
+```bash
+# Network + volume
+docker network create crz-opt-net --driver bridge --subnet 10.91.0.0/24
+docker volume create crz-opt-mariadb-data
+
+# Štart DB
+docker compose -f docker-compose.db.yml up -d
+
+# Štart worker (auto-restore)
+docker compose -f docker-compose.yml --profile restore-worker up -d
+```
+
+**Ďalšie kroky:**
+- [ ] Reálny ~78GB dump restore test
+- [ ] Stress test s viacerými dump súbormi
+- [ ] Git commit pre v1.0.0

@@ -14,9 +14,6 @@ RUN_LOG="$RUNS_DIR/$RUN_ID.log"
 
 mkdir -p "$RUNS_DIR"
 
-"${COMPOSE[@]}" up -d db >/dev/null
-wait_for_db
-
 echo "restore_run=$RUN_ID" | tee "$RUN_LOG"
 echo "dump=$DUMP_FILE" | tee -a "$RUN_LOG"
 echo "mode=$MODE" | tee -a "$RUN_LOG"
@@ -24,12 +21,16 @@ echo "started_at_utc=$(date -u +%FT%TZ)" | tee -a "$RUN_LOG"
 
 START_EPOCH="$(date +%s)"
 
+# Ensure db is up (uses db compose file)
+"${COMPOSE_DB[@]}" up -d db >/dev/null
+wait_for_db
+
 case "$MODE" in
   baseline)
-    "${COMPOSE[@]}" exec -T db /opt/crz-opt-scripts/container-restore.sh baseline "$CONTAINER_DUMP" 2>&1 | tee -a "$RUN_LOG"
+    "${COMPOSE[@]}" exec -T restore-worker /opt/crz-opt-scripts/container-restore.sh baseline "$CONTAINER_DUMP" 2>&1 | tee -a "$RUN_LOG"
     ;;
   fast|aggressive|pruned-data)
-    "${COMPOSE[@]}" exec -T db /opt/crz-opt-scripts/container-restore.sh "$MODE" "$CONTAINER_DUMP" 2>&1 | tee -a "$RUN_LOG"
+    "${COMPOSE[@]}" exec -T restore-worker /opt/crz-opt-scripts/container-restore.sh "$MODE" "$CONTAINER_DUMP" 2>&1 | tee -a "$RUN_LOG"
     ;;
   *)
     echo "Unknown RESTORE_MODE=$MODE. Use baseline, fast, aggressive or pruned-data." >&2
