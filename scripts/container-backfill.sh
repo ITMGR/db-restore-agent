@@ -45,7 +45,7 @@ else
   log "wait-ready script nenájdený, pokračujem..."
 fi
 
-export MYSQL_PWD="$MARIADB_ROOT_PASSWORD"
+export MYSQL_PWD="$MARIADB_PASSWORD"
 DB_HOST="${DB_HOST:-db}"
 DB_PORT="${DB_PORT:-3306}"
 
@@ -56,8 +56,8 @@ BACKFILL_TABLE_REGEX="${PRUNE_DATA_TABLE_REGEX:-^(log_[0-9]+|counter_[0-9]+|robo
 log "tabuľky na backfill: $BACKFILL_TABLE_REGEX"
 
 BACKFILL_TABLES=$(mariadb \
-  --user=root \
-  --password="$MARIADB_ROOT_PASSWORD" \
+  --user="$MARIADB_USER" \
+  --password="$MARIADB_PASSWORD" \
   --host="$DB_HOST" \
   --port="$DB_PORT" \
   --database="$MARIADB_DATABASE" \
@@ -91,8 +91,8 @@ log "spúšťam restore dát cez filter-backfill.awk..."
 
 client() {
   mariadb \
-    --user=root \
-    --password="$MARIADB_ROOT_PASSWORD" \
+    --user="$MARIADB_USER" \
+    --password="$MARIADB_PASSWORD" \
     --host="$DB_HOST" \
     --port="$DB_PORT" \
     --database="$MARIADB_DATABASE" \

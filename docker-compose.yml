@@ -12,6 +12,7 @@ services:
       - .env
     environment:
       COMPOSE_PROJECT_NAME: crz-opt
+      PROJECT_DIR: ${RESTORE_WORKER_PROJECT_DIR}
       DB_HOST: crz-opt-mariadb
       DB_PORT: 3306
       DUMP_WATCH_DIR: ${DUMP_WATCH_DIR}
@@ -34,6 +35,8 @@ services:
       #- .:${RESTORE_WORKER_PROJECT_DIR}
       #- ./scripts:/opt/crz-opt-scripts:ro
       - ./data/dumps:${RESTORE_WORKER_PROJECT_DIR}/data/dumps:ro
+      - ./data/restore-state:${RESTORE_WORKER_PROJECT_DIR}/data/restore-state
+      - ./data/restore-runs:${RESTORE_WORKER_PROJECT_DIR}/data/restore-runs
     networks:
       - crz-opt-net
 

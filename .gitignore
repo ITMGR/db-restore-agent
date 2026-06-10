@@ -1,9 +1,25 @@
+# Environment
 .env
 !.env.example
-__pycache__/
-*.pyc
+
+# Database dumps (sensitive, large)
+*.gz
+*.sql.gz
+*.zip
+
+# State & data dirs (keep dir structure, ignore contents)
 data/*
 !data/.gitkeep
 !data/dumps/
 data/dumps/*
 !data/dumps/.gitkeep
+!data/restore-state/
+data/restore-state/*
+!data/restore-state/.gitkeep
+!data/restore-runs/
+data/restore-runs/*
+!data/restore-runs/.gitkeep
+
+# Python
+__pycache__/
+*.pyc

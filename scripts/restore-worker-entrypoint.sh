@@ -14,8 +14,8 @@ shutdown() {
 trap shutdown EXIT INT TERM
 
 if [ "$METRICS_ENABLED" = "true" ]; then
-  python3 scripts/restore-metrics.py &
+  python3 /opt/crz-opt-scripts/restore-metrics.py &
   METRICS_PID="$!"
 fi
 
-bash scripts/watch-dumps.sh
+bash /opt/crz-opt-scripts/watch-dumps.sh

@@ -29,15 +29,15 @@ fi
 
 log "restore started — mode=$MODE file=$DUMP_FILE"
 
-export MYSQL_PWD="$MARIADB_ROOT_PASSWORD"
+export MYSQL_PWD="$MARIADB_PASSWORD"
 DB_HOST="${DB_HOST:-db}"
 DB_PORT="${DB_PORT:-3306}"
 PRUNE_DATA_TABLE_REGEX="${PRUNE_DATA_TABLE_REGEX:-^(log_[0-9]+|counter_[0-9]+|robot_01|robot_02|elastic1)$}"
 
 client() {
   mariadb \
-    --user=root \
-    --password="$MARIADB_ROOT_PASSWORD" \
+    --user="$MARIADB_USER" \
+    --password="$MARIADB_PASSWORD" \
     --host="$DB_HOST" \
     --port="$DB_PORT" \
     --database="$MARIADB_DATABASE" \

@@ -14,12 +14,14 @@ fi
 DB_HOST="${DB_HOST:-db}"
 DB_PORT="${DB_PORT:-3306}"
 MARIADB_DATABASE="${MARIADB_DATABASE:-crz}"
-MARIADB_ROOT_PASSWORD="${MARIADB_ROOT_PASSWORD:-}"
+MARIADB_DATABASE="${MARIADB_DATABASE:-crz}"
+MARIADB_USER="${MARIADB_USER:-crz}"
+MARIADB_PASSWORD="${MARIADB_PASSWORD:-}"
 RESTORE_MAX_ALLOWED_PACKET="${RESTORE_MAX_ALLOWED_PACKET:-1G}"
 PRUNE_DATA_TABLE_REGEX="${PRUNE_DATA_TABLE_REGEX:-^(log_[0-9]+|counter_[0-9]+|robot_01|robot_02|elastic1)$}"
 
-if [ -z "$MARIADB_ROOT_PASSWORD" ]; then
-  echo "MARIADB_ROOT_PASSWORD is required." >&2
+if [ -z "$MARIADB_PASSWORD" ]; then
+  echo "MARIADB_PASSWORD is required." >&2
   exit 2
 fi
 
@@ -39,10 +41,10 @@ require_dump_arg() {
 }
 
 db_client() {
-  MYSQL_PWD="$MARIADB_ROOT_PASSWORD" mariadb \
+  MYSQL_PWD="$MARIADB_PASSWORD" mariadb \
     --host="$DB_HOST" \
     --port="$DB_PORT" \
-    --user=root \
+    --user="$MARIADB_USER" \
     --binary-mode \
     --show-warnings \
     --max_allowed_packet="$RESTORE_MAX_ALLOWED_PACKET" \
@@ -56,10 +58,10 @@ db_client_database() {
 wait_for_sql_db() {
   local attempt
   for attempt in $(seq 1 120); do
-    if MYSQL_PWD="$MARIADB_ROOT_PASSWORD" mariadb-admin ping \
+    if MYSQL_PWD="$MARIADB_PASSWORD" mariadb-admin ping \
       --host="$DB_HOST" \
       --port="$DB_PORT" \
-      --user=root \
+      --user="$MARIADB_USER" \
       --silent >/dev/null 2>&1; then
       return 0
     fi
