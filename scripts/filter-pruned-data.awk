@@ -1,5 +1,7 @@
 # Keeps DDL for every table, but removes data-load blocks for tables matching
-# prune_re. The input is expected to be a plain mysqldump/MariaDB dump.
+# prune_re. Also filters out CREATE USER / GRANT / SET PASSWORD statements that
+# require privileges the crz user doesn't have.
+# The input is expected to be a plain mysqldump/MariaDB dump.
 
 function emit_pruned_table(table) {
   if (!(table in pruned)) {
@@ -29,6 +31,11 @@ skip_data {
     skip_data = 0
     current_table = ""
   }
+  next
+}
+
+# Filter out privilege statements that require CREATE USER / GRANT privilege
+/^(CREATE USER|GRANT|RENAME USER|SET PASSWORD|ALTER USER)/ {
   next
 }
 

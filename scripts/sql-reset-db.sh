@@ -20,17 +20,10 @@ fi
 wait_for_sql_db
 
 DB_IDENT="$(sql_quote_identifier "$MARIADB_DATABASE")"
-USER_VALUE="$(sql_quote_string "${MARIADB_USER:-}")"
-PASSWORD_VALUE="$(sql_quote_string "${MARIADB_PASSWORD:-}")"
 
 {
   printf 'DROP DATABASE IF EXISTS %s;\n' "$DB_IDENT"
   printf 'CREATE DATABASE %s CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;\n' "$DB_IDENT"
-  if [ -n "${MARIADB_USER:-}" ]; then
-    printf 'CREATE USER IF NOT EXISTS %s@'\''%%'\'' IDENTIFIED BY %s;\n' "$USER_VALUE" "$PASSWORD_VALUE"
-    printf 'GRANT ALL PRIVILEGES ON %s.* TO %s@'\''%%'\'';\n' "$DB_IDENT" "$USER_VALUE"
-    printf 'FLUSH PRIVILEGES;\n'
-  fi
 } | db_client
 
 echo "database_reset=$MARIADB_DATABASE"
