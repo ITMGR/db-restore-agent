@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="${PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 cd "$PROJECT_DIR"
 
@@ -92,12 +93,12 @@ run_restore_workflow() {
     fi
 
     log "phase 1: restore"
-    RESTORE_MODE="$RESTORE_WORKFLOW_MODE" "$PROJECT_DIR/scripts/sql-benchmark-restore.sh" "$dump_file"
+    RESTORE_MODE="$RESTORE_WORKFLOW_MODE" "$SCRIPTS_DIR/sql-benchmark-restore.sh" "$dump_file"
     write_state_file "$dump_file" "backfill" "running" "$RESTORE_STATE_DIR/current.state"
 
     if [ "$RESTORE_AUTO_BACKFILL" = "true" ]; then
       log "phase 2: backfill"
-      "$PROJECT_DIR/scripts/sql-backfill-gz.sh" "$dump_file"
+      "$SCRIPTS_DIR/sql-backfill-gz.sh" "$dump_file"
     else
       log "phase 2: backfill disabled"
     fi

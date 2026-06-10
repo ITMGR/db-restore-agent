@@ -3,6 +3,8 @@ set -euo pipefail
 
 source "$(dirname "$0")/sql-lib.sh"
 
+SCRIPTS_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 require_dump_arg "${1:-}"
 
 DUMP_FILE="$1"
@@ -46,7 +48,7 @@ case "$MODE" in
       printf "%s\n" "SET SESSION unique_checks=0;"
       printf "%s\n" "SET SESSION foreign_key_checks=0;"
       printf "%s\n" "SET SESSION autocommit=0;"
-      gzip -dc "$DUMP_FILE" | awk -v prune_re="$PRUNE_DATA_TABLE_REGEX" -f "$PROJECT_DIR/scripts/filter-pruned-data.awk"
+      gzip -dc "$DUMP_FILE" | awk -v prune_re="$PRUNE_DATA_TABLE_REGEX" -f "$SCRIPTS_DIR/filter-pruned-data.awk"
       printf "%s\n" "COMMIT;"
     } | db_client_database 2>&1 | tee -a "$RUN_LOG"
     ;;
