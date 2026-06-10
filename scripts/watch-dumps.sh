@@ -131,15 +131,22 @@ db_size_check() {
   log "database size check every ${interval}s"
   while true; do
     sleep "$interval"
-    local size_info
-    size_info="$(MYSQL_PWD="$MARIADB_PASSWORD" mariadb \
+  local size_info
+  size_info="$(MYSQL_PWD="$MARIADB_PASSWORD" mariadb \
       --host="$DB_HOST" \
       --port="$DB_PORT" \
       --user="$MARIADB_USER" \
       --skip-column-names \
       --batch \
       "$MARIADB_DATABASE" \
-      -e 'SELECT CONCAT(ROUND(SUM(DATA_LENGTH+INDEX_LENGTH)/1024/1024), " MB") AS total, CONCAT(ROUND(SUM(DATA_LENGTH)/1024/1024), " MB") AS data, CONCAT(ROUND(SUM(INDEX_LENGTH)/1024/1024), " MB") AS idx, SUM(TABLE_ROWS) AS rows_count FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE();' 2>/dev/null)" || continue
+      -e '
+        SELECT
+          CONCAT(ROUND(SUM(ts.data_size+ts.index_size)/1024/1024), " MB") AS total,
+          CONCAT(ROUND(SUM(ts.data_size)/1024/1024), " MB") AS data,
+          CONCAT(ROUND(SUM(ts.index_size)/1024/1024), " MB") AS idx,
+          (SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()) AS tables_count
+        FROM mysql.innodb_table_stats ts
+        WHERE ts.database=DATABASE();' 2>/dev/null)" || continue
     log "database size: $size_info"
   done
 }
