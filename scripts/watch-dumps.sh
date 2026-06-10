@@ -13,6 +13,11 @@ RESTORE_ON_START="${RESTORE_ON_START:-true}"
 RESTORE_WORKFLOW_MODE="${RESTORE_WORKFLOW_MODE:-pruned-data}"
 RESTORE_AUTO_BACKFILL="${RESTORE_AUTO_BACKFILL:-true}"
 RESTORE_GZIP_TEST="${RESTORE_GZIP_TEST:-false}"
+DB_HOST="${DB_HOST:-db}"
+DB_PORT="${DB_PORT:-3306}"
+MARIADB_USER="${MARIADB_USER:-crz}"
+MARIADB_PASSWORD="${MARIADB_PASSWORD:-}"
+MARIADB_DATABASE="${MARIADB_DATABASE:-crz}"
 
 mkdir -p "$RESTORE_STATE_DIR"
 
@@ -121,6 +126,24 @@ run_restore_workflow() {
   } 2>&1 | tee "$run_log"
 }
 
+db_size_check() {
+  local interval="${DB_SIZE_CHECK_INTERVAL:-60}"
+  log "database size check every ${interval}s"
+  while true; do
+    sleep "$interval"
+    local size_info
+    size_info="$(MYSQL_PWD="$MARIADB_PASSWORD" mariadb \
+      --host="$DB_HOST" \
+      --port="$DB_PORT" \
+      --user="$MARIADB_USER" \
+      --skip-column-names \
+      --batch \
+      "$MARIADB_DATABASE" \
+      -e 'SELECT CONCAT(ROUND(SUM(DATA_LENGTH+INDEX_LENGTH)/1024/1024), " MB") AS total, CONCAT(ROUND(SUM(DATA_LENGTH)/1024/1024), " MB") AS data, CONCAT(ROUND(SUM(INDEX_LENGTH)/1024/1024), " MB") AS idx, SUM(TABLE_ROWS) AS rows_count FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE();' 2>/dev/null)" || continue
+    log "database size: $size_info"
+  done
+}
+
 main_loop() {
   local dump_file current_id previous_id first_loop
   first_loop=1
@@ -180,4 +203,10 @@ main_loop() {
 }
 
 trap release_lock EXIT INT TERM
+
+DB_SIZE_CHECK_INTERVAL="${DB_SIZE_CHECK_INTERVAL:-60}"
+db_size_check &
+DB_SIZE_PID=$!
+trap 'kill $DB_SIZE_PID 2>/dev/null; release_lock' EXIT INT TERM
+
 main_loop

@@ -19,7 +19,8 @@ PRUNE_RE = os.environ.get("PRUNE_DATA_TABLE_REGEX", r"^(log_[0-9]+|counter_[0-9]
 DB_HOST = os.environ.get("DB_HOST", "db")
 DB_PORT = os.environ.get("DB_PORT", "3306")
 DB_NAME = os.environ.get("MARIADB_DATABASE", "crz")
-DB_ROOT_PASSWORD = os.environ.get("MARIADB_ROOT_PASSWORD", "")
+DB_USER = os.environ.get("MARIADB_USER", "crz")
+DB_PASSWORD = os.environ.get("MARIADB_PASSWORD", "")
 AUTH_ENABLED = os.environ.get("METRICS_BASIC_AUTH_ENABLED", "false").lower() == "true"
 AUTH_USERNAME = os.environ.get("METRICS_BASIC_AUTH_USERNAME", "")
 AUTH_PASSWORD = os.environ.get("METRICS_BASIC_AUTH_PASSWORD", "")
@@ -104,13 +105,19 @@ def db_metrics():
     sql = (
         "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE(); "
         "SELECT TABLE_NAME,TABLE_ROWS FROM information_schema.TABLES "
-        f"WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME RLIKE {sql_quote(PRUNE_RE)} ORDER BY TABLE_NAME;"
+        f"WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME RLIKE {sql_quote(PRUNE_RE)} ORDER BY TABLE_NAME; "
+        "SELECT "
+        "  SUM(DATA_LENGTH+INDEX_LENGTH) AS total_bytes, "
+        "  SUM(DATA_LENGTH) AS data_bytes, "
+        "  SUM(INDEX_LENGTH) AS index_bytes, "
+        "  SUM(TABLE_ROWS) AS total_rows "
+        "FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE();"
     )
     command = [
         "mariadb",
         f"--host={DB_HOST}",
         f"--port={DB_PORT}",
-        "--user=root",
+        f"--user={DB_USER}",
         "--skip-column-names",
         "--batch",
         DB_NAME,
@@ -118,7 +125,7 @@ def db_metrics():
         sql,
     ]
     env = os.environ.copy()
-    env["MYSQL_PWD"] = DB_ROOT_PASSWORD
+    env["MYSQL_PWD"] = DB_PASSWORD
     result = run_command(command, timeout=12, env=env)
     lines = []
     if result.returncode != 0:
@@ -133,12 +140,36 @@ def db_metrics():
         except ValueError:
             pass
 
+    # Parse size row (total_bytes, data_bytes, index_bytes, total_rows)
+    for line in output[1:]:
+        parts = line.split("\t")
+        if len(parts) == 4:
+            try:
+                total_bytes = int(parts[0]) or 0
+                data_bytes = int(parts[1]) or 0
+                index_bytes = int(parts[2]) or 0
+                total_rows = int(parts[3]) or 0
+                lines += metric("crz_restore_database_size_bytes", total_bytes, "Total database size (data+index).")
+                lines += metric("crz_restore_database_data_bytes", data_bytes, "Database data size.")
+                lines += metric("crz_restore_database_index_bytes", index_bytes, "Database index size.")
+                lines += metric("crz_restore_database_total_rows", total_rows, "Total rows across all tables.")
+            except ValueError:
+                pass
+            break
+
     pruned_total = 0
     pruned_empty = 0
+    pruned_started = False
     for line in output[1:]:
         parts = line.split("\t")
         if len(parts) != 2:
             continue
+        # Skip the size row (4 columns) — already handled
+        try:
+            int(parts[0])
+            continue  # numeric table name? skip
+        except ValueError:
+            pass
         table, row_count = parts
         try:
             rows = int(row_count)
