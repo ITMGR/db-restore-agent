@@ -13,9 +13,16 @@ function emit_pruned_table(table) {
 BEGIN {
   skip_data = 0
   current_table = ""
+  table_count = 0
 }
 
 /^-- Dumping data for table `/ {
+  # Commit previous table's data before starting next
+  if (table_count > 0) {
+    print "COMMIT;"
+    print "SET SESSION autocommit=0;"
+  }
+  table_count++
   current_table = $0
   sub(/^-- Dumping data for table `/, "", current_table)
   sub(/`.*/, "", current_table)
