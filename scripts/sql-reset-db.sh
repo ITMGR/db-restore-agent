@@ -24,7 +24,6 @@ USER_VALUE="$(sql_quote_string "${MARIADB_USER:-}")"
 PASSWORD_VALUE="$(sql_quote_string "${MARIADB_PASSWORD:-}")"
 
 {
-  printf 'SET SESSION sql_log_bin=0;\n'
   printf 'DROP DATABASE IF EXISTS %s;\n' "$DB_IDENT"
   printf 'CREATE DATABASE %s CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci;\n' "$DB_IDENT"
   if [ -n "${MARIADB_USER:-}" ]; then

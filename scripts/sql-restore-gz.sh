@@ -34,7 +34,6 @@ case "$MODE" in
     ;;
   fast|aggressive)
     {
-      printf "%s\n" "SET SESSION sql_log_bin=0;"
       printf "%s\n" "SET SESSION unique_checks=0;"
       printf "%s\n" "SET SESSION foreign_key_checks=0;"
       printf "%s\n" "SET SESSION autocommit=0;"
@@ -44,7 +43,6 @@ case "$MODE" in
     ;;
   pruned-data)
     {
-      printf "%s\n" "SET SESSION sql_log_bin=0;"
       printf "%s\n" "SET SESSION unique_checks=0;"
       printf "%s\n" "SET SESSION foreign_key_checks=0;"
       printf "%s\n" "SET SESSION autocommit=0;"

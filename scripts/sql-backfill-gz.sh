@@ -60,7 +60,6 @@ echo "[backfill] efektívny filter: $BACKFILL_TABLE_FILTER" | tee -a "$RUN_LOG"
 echo "[backfill] spúšťam restore dát cez filter-backfill.awk..." | tee -a "$RUN_LOG"
 
 {
-  printf "%s\n" "SET SESSION sql_log_bin=0;"
   printf "%s\n" "SET SESSION unique_checks=0;"
   printf "%s\n" "SET SESSION foreign_key_checks=0;"
   printf "%s\n" "SET SESSION autocommit=0;"
