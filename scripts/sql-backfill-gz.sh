@@ -62,6 +62,7 @@ echo "[backfill] spúšťam restore dát cez filter-backfill.awk..." | tee -a "$
 {
   printf "%s\n" "SET SESSION unique_checks=0;"
   printf "%s\n" "SET SESSION foreign_key_checks=0;"
+  printf "%s\n" "SET SESSION autocommit=0;"
   printf "%s\n" "SET NAMES utf8mb4;"
   printf "%s\n" "USE \`$MARIADB_DATABASE\`;"
   gzip -dc "$DUMP_FILE" | awk -v backfill_re="$BACKFILL_TABLE_FILTER" -f "$SCRIPTS_DIR/filter-backfill.awk"

@@ -36,18 +36,22 @@ case "$MODE" in
     {
       printf "%s\n" "SET SESSION unique_checks=0;"
       printf "%s\n" "SET SESSION foreign_key_checks=0;"
+      printf "%s\n" "SET SESSION autocommit=0;"
       printf "%s\n" "SET NAMES utf8mb4;"
       printf "%s\n" "USE \`$MARIADB_DATABASE\`;"
       gzip -dc "$DUMP_FILE"
+      printf "%s\n" "COMMIT;"
     } | db_client_database 2>&1 | tee -a "$RUN_LOG"
     ;;
   pruned-data)
     {
       printf "%s\n" "SET SESSION unique_checks=0;"
       printf "%s\n" "SET SESSION foreign_key_checks=0;"
+      printf "%s\n" "SET SESSION autocommit=0;"
       printf "%s\n" "SET NAMES utf8mb4;"
       printf "%s\n" "USE \`$MARIADB_DATABASE\`;"
       gzip -dc "$DUMP_FILE" | awk -v prune_re="$PRUNE_DATA_TABLE_REGEX" -f "$SCRIPTS_DIR/filter-pruned-data.awk"
+      printf "%s\n" "COMMIT;"
     } | db_client_database 2>&1 | tee -a "$RUN_LOG"
     ;;
   *)
